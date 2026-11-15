@@ -296,23 +296,33 @@ nav .msg { font-size: 13px; background: var(--pill); border-radius: 6px; padding
     if (!all.length) return null;
     var items = all.slice(-30).reverse(); // 0번이 가장 새 이미지
     var field = el('div', { 'class': 'scatter' });
-    var STEP = 0.13, parts = [], moved = false;
+    var STEP = 0.06, parts = [], moved = false;
     // 이미지 내용에서 뽑은 값으로 자리를 정한다. 같은 이미지는 언제 열어도 같은 자리에 있다.
     function seed(str) {
       var h = 2166136261, n = str.length, stepLen = Math.max(1, Math.floor(n / 400));
       for (var i = 0; i < n; i += stepLen) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
       return function () { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 10000) / 10000; };
     }
-    items.forEach(function (it, rank) {
-      var rnd = seed(it.src);
-      var img = el('img', { src: it.src, alt: '', draggable: 'false' });
-      var b = el('button', {
-        type: 'button', 'class': 'shot', title: it.title, 'aria-label': it.title + ' 글 열기',
-        onclick: function () { if (!moved) pick(it.idx); }
-      }, [img]);
-      parts.push({ el: b, img: img, x: (rnd() * 2 - 1) * 1.5, y: (rnd() * 2 - 1) * 1.05, z: rank * STEP });
-      field.appendChild(b);
-    });
+    var placed = [];
+    for (var rank = items.length - 1; rank >= 0; rank--) {
+      (function (it, rank) {
+        // 오래된 것부터 자리를 잡는다. 후보 자리 여럿 중 이미 놓인 이미지들과 가장 멀리 떨어진 곳을 고른다.
+        var rnd = seed(it.src), dz0 = rank * STEP + 1, best = null, bestD = -1;
+        for (var c = 0; c < 40; c++) {
+          var u = (rnd() * 2 - 1) * 0.82, v = (rnd() * 2 - 1) * 0.78, near = 9;
+          for (var q = 0; q < placed.length; q++) near = Math.min(near, Math.hypot(u - placed[q].u, v - placed[q].v));
+          if (near > bestD) { bestD = near; best = { u: u, v: v }; }
+        }
+        placed.push(best);
+        var img = el('img', { src: it.src, alt: '', draggable: 'false' });
+        var b = el('button', {
+          type: 'button', 'class': 'shot', title: it.title, 'aria-label': it.title + ' 글 열기',
+          onclick: function () { if (!moved) pick(it.idx); }
+        }, [img]);
+        parts[rank] = { el: b, img: img, x: best.u * dz0, y: best.v * dz0, z: rank * STEP };
+        field.appendChild(b);
+      })(items[rank], rank);
+    }
     var zFar = (items.length - 1) * STEP;
     var cam = { x: 0, y: 0, z: -1 }, tgt = { x: 0, y: 0, z: -1 };
     var pts = {}, pinch = 0;
@@ -358,7 +368,7 @@ nav .msg { font-size: 13px; background: var(--pill); border-radius: 6px; padding
     field.addEventListener('pointerleave', lift);
     function frame() {
       if (!field.isConnected) return;
-      var w = field.clientWidth, h = field.clientHeight, base = Math.max(100, w * 0.22), k = still ? 1 : 0.2;
+      var w = field.clientWidth, h = field.clientHeight, base = Math.max(76, w * 0.17), k = still ? 1 : 0.2;
       cam.x += (tgt.x - cam.x) * k; cam.y += (tgt.y - cam.y) * k; cam.z += (tgt.z - cam.z) * k;
       for (var i = 0; i < parts.length; i++) {
         var p = parts[i], dz = p.z - cam.z;
