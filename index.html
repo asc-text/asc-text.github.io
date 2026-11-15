@@ -368,7 +368,7 @@ nav .msg { font-size: 13px; background: var(--pill); border-radius: 6px; padding
     field.addEventListener('pointerleave', lift);
     function frame() {
       if (!field.isConnected) return;
-      var w = field.clientWidth, h = field.clientHeight, base = Math.max(76, w * 0.17), k = still ? 1 : 0.2;
+      var w = field.clientWidth, h = field.clientHeight, base = w > 480 ? w * 0.24 : Math.max(76, w * 0.17), k = still ? 1 : 0.2;
       cam.x += (tgt.x - cam.x) * k; cam.y += (tgt.y - cam.y) * k; cam.z += (tgt.z - cam.z) * k;
       for (var i = 0; i < parts.length; i++) {
         var p = parts[i], dz = p.z - cam.z;
