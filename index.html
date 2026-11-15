@@ -110,7 +110,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .right .body p.indent { margin-top: 0; text-indent: 1em; }
 .cats { display: flex; gap: 14px; }
 .cats label { display: flex; align-items: center; gap: 6px; font-size: 16px; margin: 0; cursor: pointer; color: var(--ink); }
-.scatter { position: relative; width: 100%; height: calc(100vh - 190px); min-height: 340px; margin-top: 8px; overflow: hidden; touch-action: pan-y; cursor: grab; }
+.scatter { position: relative; width: 100%; height: calc(100vh - 190px); min-height: 340px; margin-top: 8px; overflow: hidden; touch-action: none; cursor: grab; }
+@media (max-width: 760px) { .scatter { height: 62vh; } }
 .shot { position: absolute; left: 0; top: 0; border: 0; padding: 0; background: none; cursor: pointer; transform-origin: 0 0; will-change: transform, opacity; opacity: 0; }
 .shot img { display: block; width: 100%; height: auto; pointer-events: none; }
 .thumbs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
@@ -287,66 +288,91 @@ nav .msg { font-size: 13px; background: var(--pill); border-radius: 6px; padding
   }
 
   /* ---------- 오른쪽: information 칸 ---------- */
-  // 첫 화면: 모든 글의 이미지를 3D 공간에 무작위로 띄운다. 먼 것은 작게 보인다.
-  // 스크롤하면 앞으로 나아가고, 마우스를 움직이거나 끌면 사방으로 둘러본다. 이미지를 누르면 그 글이 열린다.
+  // 첫 화면: 글의 이미지를 3D 공간에 고정해 둔다. 새로 넣은 이미지일수록 앞쪽(크게)에 놓이고, 최근 30장만 보인다.
+  // 끌면 상하좌우로 움직이고, 휠이나 두 손가락 벌리기로 확대한다. 이미지를 누르면 그 글이 열린다.
   function scatter(d) {
-    var items = [];
-    d.posts.forEach(function (p, idx) { p.images.forEach(function (src) { items.push({ src: src, idx: idx, title: p.title }); }); });
-    if (!items.length) return null;
+    var all = [];
+    d.posts.forEach(function (p, idx) { p.images.forEach(function (src) { all.push({ src: src, idx: idx, title: p.title }); }); });
+    if (!all.length) return null;
+    var items = all.slice(-30).reverse(); // 0번이 가장 새 이미지
     var field = el('div', { 'class': 'scatter' });
-    var N = items.length, D = Math.max(3, Math.min(6, items.length / 5)), parts = [], moved = false;
-    for (var n = 0; n < N; n++) {
-      (function (n) {
-        var first = n < items.length;
-        var it = items[first ? n : Math.floor(Math.random() * items.length)];
-        var img = el('img', { src: it.src, alt: '', draggable: 'false' });
-        var b = el('button', {
-          type: 'button', 'class': 'shot', title: it.title,
-          'aria-label': first ? it.title + ' 글 열기' : null, 'aria-hidden': first ? null : 'true', tabindex: first ? null : '-1',
-          onclick: function () { if (!moved) pick(it.idx); }
-        }, [img]);
-        parts.push({ el: b, img: img, x: (Math.random() * 2 - 1) * 3, y: (Math.random() * 2 - 1) * 2.2, z: Math.random() * D });
-        field.appendChild(b);
-      })(n);
+    var STEP = 0.13, parts = [], moved = false;
+    // 이미지 내용에서 뽑은 값으로 자리를 정한다. 같은 이미지는 언제 열어도 같은 자리에 있다.
+    function seed(str) {
+      var h = 2166136261, n = str.length, stepLen = Math.max(1, Math.floor(n / 400));
+      for (var i = 0; i < n; i += stepLen) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+      return function () { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 10000) / 10000; };
     }
-    var cam = { x: 0, y: 0, z: 0 }, tgt = { x: 0, y: 0, z: 0 }, off = { x: 0, y: 0 }, mouse = { x: 0, y: 0 }, drag = null;
-    var still = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-    field.addEventListener('wheel', function (e) { e.preventDefault(); tgt.z += e.deltaY * 0.0025; }, { passive: false });
-    field.addEventListener('pointerdown', function (e) { drag = { x: e.clientX, y: e.clientY, ox: off.x, oy: off.y }; moved = false; });
-    field.addEventListener('pointermove', function (e) {
-      var r = field.getBoundingClientRect();
-      mouse.x = ((e.clientX - r.left) / r.width - 0.5) * 1.2;
-      mouse.y = ((e.clientY - r.top) / r.height - 0.5) * 1.2;
-      if (drag) {
-        var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-        if (Math.abs(dx) + Math.abs(dy) > 6) moved = true;
-        off.x = Math.max(-2.5, Math.min(2.5, drag.ox - dx / r.width * 3));
-        off.y = Math.max(-2, Math.min(2, drag.oy - dy / r.height * 3));
-      }
+    items.forEach(function (it, rank) {
+      var rnd = seed(it.src);
+      var img = el('img', { src: it.src, alt: '', draggable: 'false' });
+      var b = el('button', {
+        type: 'button', 'class': 'shot', title: it.title, 'aria-label': it.title + ' 글 열기',
+        onclick: function () { if (!moved) pick(it.idx); }
+      }, [img]);
+      parts.push({ el: b, img: img, x: (rnd() * 2 - 1) * 1.5, y: (rnd() * 2 - 1) * 1.05, z: rank * STEP });
+      field.appendChild(b);
     });
-    function endDrag() { drag = null; }
-    field.addEventListener('pointerup', endDrag);
-    field.addEventListener('pointerleave', endDrag);
-    field.addEventListener('pointercancel', endDrag);
+    var zFar = (items.length - 1) * STEP;
+    var cam = { x: 0, y: 0, z: -1 }, tgt = { x: 0, y: 0, z: -1 };
+    var pts = {}, pinch = 0;
+    var still = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    function clamp() {
+      tgt.z = Math.max(-3, Math.min(zFar - 0.4, tgt.z));
+      tgt.x = Math.max(-2, Math.min(2, tgt.x));
+      tgt.y = Math.max(-1.6, Math.min(1.6, tgt.y));
+    }
+    function count() { return Object.keys(pts).length; }
+    function spread() {
+      var k = Object.keys(pts);
+      return Math.hypot(pts[k[0]].x - pts[k[1]].x, pts[k[0]].y - pts[k[1]].y);
+    }
+    field.addEventListener('wheel', function (e) {
+      e.preventDefault(); tgt.z -= e.deltaY * 0.0025; clamp();
+    }, { passive: false });
+    field.addEventListener('pointerdown', function (e) {
+      pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+      if (count() === 1) moved = false;
+      if (count() === 2) pinch = spread();
+    });
+    field.addEventListener('pointermove', function (e) {
+      var p = pts[e.pointerId];
+      if (!p) return;
+      var dx = e.clientX - p.x, dy = e.clientY - p.y;
+      p.x = e.clientX; p.y = e.clientY;
+      if (count() === 2) {
+        var sNow = spread();
+        if (pinch > 0 && sNow > 0) { tgt.z += Math.log(sNow / pinch) * 1.6; moved = true; }
+        pinch = sNow;
+      } else {
+        if (Math.abs(dx) + Math.abs(dy) > 3) moved = true;
+        var dist = Math.max(0.5, -tgt.z); // 가장 앞 이미지까지의 거리만큼 손가락을 따라 움직인다
+        tgt.x -= dx / (field.clientWidth * 0.5) * dist;
+        tgt.y -= dy / (field.clientHeight * 0.5) * dist;
+      }
+      clamp();
+    });
+    function lift(e) { delete pts[e.pointerId]; pinch = 0; }
+    field.addEventListener('pointerup', lift);
+    field.addEventListener('pointercancel', lift);
+    field.addEventListener('pointerleave', lift);
     function frame() {
       if (!field.isConnected) return;
-      var w = field.clientWidth, h = field.clientHeight, base = Math.max(90, w * 0.2), k = still ? 1 : 0.07;
-      if (!still) tgt.z += 0.0012;
-      tgt.x = off.x + mouse.x; tgt.y = off.y + mouse.y;
+      var w = field.clientWidth, h = field.clientHeight, base = Math.max(100, w * 0.22), k = still ? 1 : 0.2;
       cam.x += (tgt.x - cam.x) * k; cam.y += (tgt.y - cam.y) * k; cam.z += (tgt.z - cam.z) * k;
       for (var i = 0; i < parts.length; i++) {
-        var p = parts[i];
-        var dz = (((p.z - cam.z) % D) + D) % D;
-        var s = 1 / (0.35 + dz);
+        var p = parts[i], dz = p.z - cam.z;
+        if (dz < 0.15) { p.el.style.opacity = '0'; p.el.style.pointerEvents = 'none'; continue; }
+        var s = 1 / dz;
         var ar = p.img.naturalWidth ? p.img.naturalHeight / p.img.naturalWidth : 1;
         var px = w / 2 + (p.x - cam.x) * s * w * 0.5 - base * s / 2;
         var py = h / 2 + (p.y - cam.y) * s * h * 0.5 - base * ar * s / 2;
-        var o = Math.max(0, Math.min(1, dz / 0.6, (D - dz) / 1.2));
+        var o = Math.max(0, Math.min(1, (dz - 0.15) / 0.3));
         p.el.style.width = base + 'px';
         p.el.style.transform = 'translate(' + px.toFixed(1) + 'px,' + py.toFixed(1) + 'px) scale(' + s.toFixed(3) + ')';
         p.el.style.opacity = o.toFixed(2);
-        p.el.style.zIndex = String(Math.round(s * 100));
-        p.el.style.pointerEvents = o < 0.3 ? 'none' : '';
+        p.el.style.zIndex = String(1000 - i);
+        p.el.style.pointerEvents = o < 0.4 ? 'none' : '';
       }
       requestAnimationFrame(frame);
     }
