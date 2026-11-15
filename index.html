@@ -294,7 +294,7 @@ nav .msg { font-size: 13px; background: var(--pill); border-radius: 6px; padding
     d.posts.forEach(function (p, idx) { p.images.forEach(function (src) { items.push({ src: src, idx: idx, title: p.title }); }); });
     if (!items.length) return null;
     var field = el('div', { 'class': 'scatter' });
-    var N = Math.max(items.length, 34), D = 6, parts = [], moved = false;
+    var N = items.length, D = Math.max(3, Math.min(6, items.length / 5)), parts = [], moved = false;
     for (var n = 0; n < N; n++) {
       (function (n) {
         var first = n < items.length;
