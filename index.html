@@ -111,7 +111,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .cats { display: flex; gap: 14px; }
 .cats label { display: flex; align-items: center; gap: 6px; font-size: 16px; margin: 0; cursor: pointer; color: var(--ink); }
 .scatter { position: relative; width: 100%; height: calc(100vh - 190px); min-height: 340px; margin-top: 8px; overflow: hidden; touch-action: none; cursor: grab; }
-@media (max-width: 760px) { .scatter { height: 62vh; } }
+@media (max-width: 760px) { .scatter { height: calc(100vh - 262px); height: calc(100svh - 262px); min-height: 260px; } }
 .shot { position: absolute; left: 0; top: 0; border: 0; padding: 0; background: none; cursor: pointer; transform-origin: 0 0; will-change: transform, opacity; opacity: 0; }
 .shot img { display: block; width: 100%; height: auto; pointer-events: none; }
 .thumbs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
@@ -119,10 +119,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .thumb img { display: block; width: 100%; height: auto; }
 .right .status { font-size: 13px; color: var(--ink-soft); }
 
+/* 폰: ASC → 소개와 이미지 공간(또는 고른 글) → 제목 목록 순서. 목록 머리가 첫 화면 아래에 걸쳐 보인다. */
 @media (max-width: 760px) {
-  .cols { min-height: 0; }
-  .left { padding-right: 0; }
-  .right { padding-left: 0; padding-top: 24px; border-left: 0; border-top: 1px solid var(--rule); }
+  .cols { min-height: 0; flex-direction: column; flex-wrap: nowrap; gap: 0; }
+  .left { display: contents; }
+  .left h1 { order: 0; }
+  .right { order: 1; flex: none; padding-left: 0; border-left: 0; }
+  .titles { order: 2; margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--rule); }
+  .titles::before { content: "Texts"; display: block; font-size: 13px; color: var(--ink-soft); margin-bottom: 10px; }
+  .brand { margin-bottom: 12px; }
 }
 
 /* 수정 화면 */
@@ -251,7 +256,10 @@ nav .msg { font-size: 13px; background: var(--pill); border-radius: 6px; padding
     return n;
   }
   function cur() { return ui.editing ? draft : data; }
-  function pick(i) { ui.sel = i; ui.confirmDelete = false; render(); }
+  function pick(i) {
+    ui.sel = i; ui.confirmDelete = false; render();
+    if (window.innerWidth <= 760) window.scrollTo(0, 0); // 폰에서는 목록이 아래에 있으니 고른 글의 맨 위로 올린다
+  }
 
   function field(id, label, value, onInput, opts) {
     opts = opts || {};
@@ -284,7 +292,8 @@ nav .msg { font-size: 13px; background: var(--pill); border-radius: 6px; padding
         var t = document.getElementById('f-title'); if (t) t.focus();
       }
     }));
-    return el('section', { 'class': 'col left', 'aria-label': '글 목록' }, kids);
+    var head = kids.shift();
+    return el('section', { 'class': 'col left', 'aria-label': '글 목록' }, [head, el('div', { 'class': 'titles' }, kids)]);
   }
 
   /* ---------- 오른쪽: information 칸 ---------- */
