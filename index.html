@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script data-goatcounter="https://asc-text.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
 <body>
-
 <title>ASC</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style id="css">
@@ -257,6 +257,9 @@ nav .msg { font-size: 13px; background: var(--pill); border-radius: 6px; padding
   function cur() { return ui.editing ? draft : data; }
   function pick(i) {
     ui.sel = i; ui.confirmDelete = false; render();
+    // 방문 통계(GoatCounter): 글을 열 때마다 그 글 제목으로 한 번 센다. 통계 스크립트가 없는 곳(아티팩트 등)에서는 아무 일도 안 한다.
+    var gc = window.goatcounter;
+    if (!ui.editing && i >= 0 && gc && gc.count && data.posts[i]) gc.count({ path: '/' + encodeURIComponent(data.posts[i].title || ('post-' + i)), title: data.posts[i].title, event: false });
     if (window.innerWidth <= 760) window.scrollTo(0, 0); // 폰에서는 목록이 아래에 있으니 고른 글의 맨 위로 올린다
   }
 
@@ -595,6 +598,5 @@ nav .msg { font-size: 13px; background: var(--pill); border-radius: 6px; padding
   }
 })();
 </script>
-
 </body>
 </html>
